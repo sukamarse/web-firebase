@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1d4ed8">
+  <meta name="description" content="Smart Sensor Dashboard">
+  <title>Smart Sensor Dashboard</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="data/icon.png">
+  <script src="https://www.gstatic.com/firebasejs/8.2.10/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.2.10/firebase-database.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-image: url('background.jpg');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+      overflow-y: auto;
+    }
+    .hidden {
+      display: none !important;
+    }
+    .tab-active {
+      background: linear-gradient(90deg, #1d4ed8, #22d3ee);
+      color: white;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    }
+    .tab-inactive {
+      background-color: #e5e7eb;
+      color: #374151;
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.6);
+      backdrop-filter: blur(12px);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      padding: 1rem;
+    }
+    .glass-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+    }
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 28px;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      transition: .4s;
+      border-radius: 34px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: #4ade80;
+    }
+    input:checked + .slider:before {
+      transform: translateX(22px);
+    }
+    .header {
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(12px);
+      padding: 10px 20px;
+      height: 100px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    #dashboardName {
+      width: 64px;
+      height: 64px;
+      object-fit: contain;
+      flex: 1;
+      text-align: left;
+    }
+    .tabs {
+      flex: 2;
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+    }
+    #currentTime {
+      font-size: 1.2rem;
+      color: #374151;
+      flex: 1;
+      text-align: right;
+    }
+    .footer {
+      background: rgba(255, 255, 255, 0.8);
+      backdrop-filter: blur(12px);
+      padding: 10px 0;
+      text-align: center;
+      color: #374151;
+      font-size: 1.1rem;
+      height: 40px;
+    }
+    #dashboard0, #dashboard1 {
+      width: 100vw;
+      min-height: calc(100vh - 140px);
+      background-size: cover;
+      background-position: center;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    #dashboard0 {
+      background-image: url('data/dashboard0/background.jpg');
+      background-color: #f0f0f0;
+    }
+    #dashboard1 {
+      background-image: url('data/dashboard1/background.jpg');
+      background-color: #f0f0f0;
+    }
+    .device-status-img {
+      width: 64px;
+      height: 64px;
+      display: block;
+      margin: 0 auto 8px auto;
+    }
+    .container {
+      padding: 0;
+      margin: 0;
+      max-width: 100%;
+    }
+    .glass-card h2 {
+      font-size: 1rem;
+    }
+    .glass-card p {
+      font-size: 1.25rem;
+    }
+    .glass-card h2.mb-2 {
+      font-size: 0.875rem;
+    }
+    .charts-section {
+      margin-top: 16px;
+    }
+    .charts-section .glass-card {
+      padding: 0.5rem;
+    }
+    .charts-section canvas {
+      width: 100%;
+      height: 100px;
+    }
+    @media (max-width: 640px) {
+      .header {
+        flex-direction: column;
+        height: auto;
+        padding: 10px;
+      }
+      .tabs {
+        margin: 10px 0;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      #dashboardName {
+        width: 48px;
+        height: 48px;
+      }
+      #currentTime {
+        font-size: 1rem;
+      }
+      .glass-card {
+        padding: 0.75rem;
+      }
+      .glass-card h2 {
+        font-size: 0.875rem;
+      }
+      .glass-card p {
+        font-size: 1rem;
+      }
+      .glass-card h2.mb-2 {
+        font-size: 0.75rem;
+      }
+      .device-status-img {
+        width: 48px;
+        height: 48px;
+      }
+      .charts-section canvas {
+        height: 80px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <img id="dashboardName" src="data/logo.png" alt="HCMUTE Logo">
+      <div class="tabs">
+        <button onclick="setTab(0)" id="tabBtn0" class="px-6 py-2 rounded-lg font-semibold tab-active">Phòng khách</button>
+        <button onclick="setTab(1)" id="tabBtn1" class="px-6 py-2 rounded-lg font-semibold tab-inactive">Phòng ngủ</button>
+      </div>
+      <span id="currentTime">--:--:--</span>
+    </div>
+
+    <!-- Dashboard 0: Phòng khách -->
+    <div id="dashboard0" class="space-y-6">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div class="p-4 glass-card text-center">
+          <h2 class="text-lg font-semibold text-gray-700">Nhiệt độ</h2>
+          <p id="temp0" class="text-xl font-bold text-red-600 mt-2">-- °C</p>
+        </div>
+        <div class="p-4 glass-card text-center">
+          <h2 class="text-lg font-semibold text-gray-700">Độ ẩm</h2>
+          <p id="humid0" class="text-xl font-bold text-blue-600 mt-2">-- %</p>
+        </div>
+        <div class="p-4 glass-card text-center">
+          <h2 class="text-lg font-semibold text-gray-700">Độ sáng</h2>
+          <p id="light0" class="text-xl font-bold text-yellow-500 mt-2">-- lux</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div class="p-4 glass-card text-center">
+          <h2 class="text-base font-semibold text-gray-700 mb-2">Đèn</h2>
+          <img id="deviceStatus01" src="data/dashboard0/light_off.png" class="device-status-img">
+          <label class="switch">
+            <input type="checkbox" id="deviceSwitch01" data-device="light" onchange="updateDeviceStatus(0, 1)">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="p-4 glass-card text-center">
+          <h2 class="text-base font-semibold text-gray-700 mb-2">Quạt</h2>
+          <img id="deviceStatus02" src="data/dashboard0/fan_off.png" class="device-status-img">
+          <label class="switch">
+            <input type="checkbox" id="deviceSwitch02" data-device="fan" onchange="updateDeviceStatus(0, 2)">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="p-4 glass-card text-center">
+          <h2 class="text-base font-semibold text-gray-700 mb-2">Điều hòa</h2>
+          <img id="deviceStatus03" src="data/dashboard0/ac_off.png" class="device-status-img">
+          <label class="switch">
+            <input type="checkbox" id="deviceSwitch03" data-device="ac" onchange="updateDeviceStatus(0, 3)">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="charts-section grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div class="glass-card text-center">
+          <h2 class="text-base font-semibold text-gray-700 mb-2">Biểu đồ nhiệt độ</h2>
+          <canvas id="tempChart0"></canvas>
+        </div>
+        <div class="glass-card text-center">
+          <h2 class="text-base font-semibold text-gray-700 mb-2">Biểu đồ độ ẩm</h2>
+          <canvas id="humidChart0"></canvas>
+        </div>
+        <div class="glass-card text-center">
+          <h2 class="text-base font-semibold text-gray-700 mb-2">Biểu đồ độ sáng</h2>
+          <canvas id="lightChart0"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dashboard 1: Phòng ngủ -->
+    <div id="dashboard1" class="space-y-6 hidden">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div class="p-4 glass-card text-center">
+          <h2 class="text-lg font-semibold text-gray-700">Nhiệt độ</h2>
+          <p id="temp1" class="text-xl font-bold text-red-600 mt-2">-- °C</p>
+        </div>
+        <div class="p-4 glass-card text-center">
+          <h2 class="text-lg font-semibold text-gray-700">Độ ẩm</h2>
+          <p id="humid1" class="text-xl font-bold text-blue-600 mt-2">-- %</p>
+        </div>
+        <div class="p-4 glass-card text-center">
+          <h2 class="text-lg font-semibold text-gray-700">Độ sáng</h2>
+          <p id="light1" class="text-xl font-bold text-yellow-500 mt-2">-- lux</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div class="p-4 glass-card text-center">
+          <h2 class="text-base font-semibold text-gray-700 mb-2">Đèn</h2>
+          <img id="deviceStatus11" src="data/dashboard1/light_off.png" class="device-status-img">
+          <label class="switch">
+            <input type="checkbox" id="deviceSwitch11" data-device="light" onchange="updateDeviceStatus(1, 1)">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="p-4 glass-card text-center">
+          <h2 class="text-base font-semibold text-gray-700 mb-2">Quạt</h2>
+          <img id="deviceStatus12" src="data/dashboard1/fan_off.png" class="device-status-img">
+          <label class="switch">
+            <input type="checkbox" id="deviceSwitch12" data-device="fan" onchange="updateDeviceStatus(1, 2)">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="p-4 glass-card text-center">
+          <h2 class="text-base font-semibold text-gray-700 mb-2">Điều hòa</h2>
+          <img id="deviceStatus13" src="data/dashboard1/ac_off.png" class="device-status-img">
+          <label class="switch">
+            <input type="checkbox" id="deviceSwitch13" data-device="ac" onchange="updateDeviceStatus(1, 3)">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="charts-section grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div class="glass-card text-center">
+          <h2 class="text-base font-semibold text-gray-700 mb-2">Biểu đồ nhiệt độ</h2>
+          <canvas id="tempChart1"></canvas>
+        </div>
+        <div class="glass-card text-center">
+          <h2 class="text-base font-semibold text-gray-700 mb-2">Biểu đồ độ ẩm</h2>
+          <canvas id="humidChart1"></canvas>
+        </div>
+        <div class="glass-card text-center">
+          <h2 class="text-base font-semibold text-gray-700 mb-2">Biểu đồ độ sáng</h2>
+          <canvas id="lightChart1"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>Created by Quang Triết, Thanh Sơn, Hữu Thiện</p>
+    </div>
+  </div>
+<script>
+  // Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyBe2Jz-2XUr59QTrlG-oLmvpEXayDraz84",
+    authDomain: "iot-web-a76b6.firebaseapp.com",
+    databaseURL: "https://iot-web-a76b6-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "iot-web-a76b6",
+    storageBucket: "iot-web-a76b6.firebasestorage.app",
+    messagingSenderId: "514215744155",
+    appId: "1:514215744155:web:a968079df2f329c5f0ec3e"
+  };
+
+  // Khởi tạo Firebase
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  // Hàm chuyển đổi tab
+  function setTab(index) {
+    const dashboards = ["dashboard0", "dashboard1"];
+    dashboards.forEach((id, i) => {
+      const dashboard = document.getElementById(id);
+      const tabBtn = document.getElementById(`tabBtn${i}`);
+      if (dashboard && tabBtn) {
+        dashboard.classList.toggle("hidden", i !== index);
+        tabBtn.classList.toggle("tab-active", i === index);
+        tabBtn.classList.toggle("tab-inactive", i !== index);
+        console.log(`Dashboard ${id} hidden: ${dashboard.classList.contains("hidden")}`);
+      }
+    });
+  }
+
+  // Hàm cập nhật trạng thái thiết bị
+  function updateDeviceStatus(dashboardIndex, deviceNumber) {
+    const switchId = `deviceSwitch${dashboardIndex}${deviceNumber}`;
+    const imgId = `deviceStatus${dashboardIndex}${deviceNumber}`;
+    const switchElement = document.getElementById(switchId);
+    if (switchElement) {
+      const isChecked = switchElement.checked;
+      const deviceType = switchElement.getAttribute('data-device');
+      // Cập nhật ảnh giao diện
+      document.getElementById(imgId).src = `data/dashboard${dashboardIndex}/${deviceType}_${isChecked ? 'on' : 'off'}.png`;
+      // Lưu trạng thái vào Firebase
+      db.ref(`devices/dashboard${dashboardIndex}/${deviceType}`).set(isChecked ? 1 : 0);
+    }
+  }
+
+  // Đồng bộ thiết bị từ Firebase
+  function syncDevices(dashboardIndex) {
+    const devices = ['light', 'fan', 'ac'];
+    devices.forEach((device, i) => {
+      db.ref(`devices/dashboard${dashboardIndex}/${device}`).on('value', (snap) => {
+        const state = snap.val();
+        const switchId = `deviceSwitch${dashboardIndex}${i + 1}`;
+        const imgId = `deviceStatus${dashboardIndex}${i + 1}`;
+        const switchElement = document.getElementById(switchId);
+        if (switchElement) {
+          switchElement.checked = state === 1;
+          document.getElementById(imgId).src = `data/dashboard${dashboardIndex}/${device}_${state === 1 ? 'on' : 'off'}.png`;
+        }
+      });
+    });
+  }
+
+  // Đồng bộ cảm biến từ Firebase
+  function syncSensors(dashboardIndex) {
+    const sensors = [
+      { id: `temp${dashboardIndex}`, key: 'temperature', unit: '°C', color: 'text-red-600' },
+      { id: `humid${dashboardIndex}`, key: 'humidity', unit: '%', color: 'text-blue-600' },
+      { id: `light${dashboardIndex}`, key: 'light', unit: 'lux', color: 'text-yellow-500' }
+    ];
+    sensors.forEach(sensor => {
+      db.ref(`sensors/dashboard${dashboardIndex}/${sensor.key}`).on('value', (snap) => {
+        const value = snap.val();
+        const element = document.getElementById(sensor.id);
+        if (element) {
+          element.textContent = value !== null ? `${value} ${sensor.unit}` : `-- ${sensor.unit}`;
+          element.className = `text-xl font-bold ${sensor.color} mt-2`;
+        }
+      });
+    });
+  }
+
+  // Dữ liệu cảm biến cho biểu đồ
+  const sensorChartData = {
+    0: { temperature: [], humidity: [], light: [] }, // Dashboard 0
+    1: { temperature: [], humidity: [], light: [] }  // Dashboard 1
+  };
+
+  // Khởi tạo biểu đồ
+  const charts = {
+    0: { temperature: null, humidity: null, light: null },
+    1: { temperature: null, humidity: null, light: null }
+  };
+
+  function initCharts(dashboardIndex) {
+    const sensors = [
+      { key: 'temperature', label: 'Nhiệt độ (°C)', color: 'rgba(239, 68, 68, 0.8)', canvasId: `tempChart${dashboardIndex}` },
+      { key: 'humidity', label: 'Độ ẩm (%)', color: 'rgba(59, 130, 246, 0.8)', canvasId: `humidChart${dashboardIndex}` },
+      { key: 'light', label: 'Độ sáng (lux)', color: 'rgba(234, 179, 8, 0.8)', canvasId: `lightChart${dashboardIndex}` }
+    ];
+
+    sensors.forEach(sensor => {
+      const ctx = document.getElementById(sensor.canvasId).getContext('2d');
+      charts[dashboardIndex][sensor.key] = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: ['1', '2', '3', '4', '5'],
+          datasets: [{
+            label: sensor.label,
+            data: sensorChartData[dashboardIndex][sensor.key],
+            borderColor: sensor.color,
+            fill: false,
+            pointRadius: 2,
+            borderWidth: 1
+          }]
+        },
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: sensor.key === 'temperature' ? 50 : sensor.key === 'humidity' ? 100 : 1000,
+              ticks: { font: { size: 10 } }
+            },
+            x: { ticks: { font: { size: 10 } } }
+          },
+          plugins: {
+            legend: { labels: { font: { size: 10 } } }
+          }
+        }
+      });
+    });
+  }
+
+  // Đồng bộ dữ liệu cảm biến cho biểu đồ
+  function syncSensorCharts(dashboardIndex) {
+    const sensors = [
+      { key: 'temperature', data: sensorChartData[dashboardIndex].temperature },
+      { key: 'humidity', data: sensorChartData[dashboardIndex].humidity },
+      { key: 'light', data: sensorChartData[dashboardIndex].light }
+    ];
+
+    sensors.forEach(sensor => {
+      db.ref(`sensors/dashboard${dashboardIndex}/${sensor.key}`).on('value', (snap) => {
+        const value = snap.val();
+        if (value !== null) {
+          sensor.data.push(value);
+          if (sensor.data.length > 5) {
+            sensor.data.shift();
+          }
+          charts[dashboardIndex][sensor.key].data.datasets[0].data = sensor.data;
+          charts[dashboardIndex][sensor.key].update();
+        }
+      });
+    });
+  }
+
+  // Khởi tạo biểu đồ và đồng bộ dữ liệu cho cả hai dashboard
+  [0, 1].forEach(dashboardIndex => {
+    initCharts(dashboardIndex);
+    syncSensorCharts(dashboardIndex);
+  });
+
+  // Khởi tạo đồng bộ cho cả hai dashboard
+  syncDevices(0);
+  syncDevices(1);
+  syncSensors(0);
+  syncSensors(1);
+
+  // Cập nhật thời gian thực
+  setInterval(() => {
+    document.getElementById('currentTime').textContent = new Date().toLocaleTimeString();
+  }, 1000);
+
+  // Đăng ký Service Worker cho PWA
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js')
+        .then(reg => console.log('Service Worker registered:', reg))
+        .catch(err => console.log('Service Worker registration failed:', err));
+    });
+  }
+
+  // Khởi tạo dashboard mặc định
+  setTab(0);
+</script>
+</body>
+</html>
